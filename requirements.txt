@@ -1,0 +1,16 @@
+openai
+groq
+langchain-groq
+pydantic
+streamlit
+python-dotenv
+langchain
+langchain-community
+faiss-cpu
+sentence-transformers
+pandas
+numpy
+ipykernel
+pypdf
+langchain-core
+pdf2image

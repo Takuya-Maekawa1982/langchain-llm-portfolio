@@ -1,83 +1,103 @@
-from langchain.llms import OpenAI
-from pypdf import PdfReader
-import pandas as pd
-import re
-from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
-from langchain.agents.agent_types import AgentType
-
-import openai
 import os
+import re
+import json
+import pandas as pd
+import streamlit as st
+from pypdf import PdfReader
 from dotenv import find_dotenv, load_dotenv
+from langchain_groq import ChatGroq
+from langchain_core.prompts import PromptTemplate
+
+# Load environment variables
 load_dotenv(find_dotenv())
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# chat = ChatOpenAI(temperature=.7, model="gpt-3.5-turbo")
-
-# Extract Info rom PDF file
+# Extract text from PDF
 def get_pdf_text(pdf_doc):
-    text=""
+    text = ""
     pdf_reader = PdfReader(pdf_doc)
     for page in pdf_reader.pages:
         text += page.extract_text()
     return text
 
-# Extract data from text
+# Extract structured data using Multi-Shot and Strict Instructions
 def extracted_data(pages_data):
-    template = """Extract all the following values : Invoice ID, DESCRIPTION, Issue Date, 
-         UNIT PRICE, AMOUNT, Bill For, From and Terms from: {pages}
+    template = """
+    ### SYSTEM INSTRUCTIONS ###
+    Extract invoice data into a single JSON object. 
+    - STRICT KEYS: Use ONLY "Invoice ID", "DESCRIPTION", "Issue Date", "UNIT PRICE", "AMOUNT", "Bill For", "From", "Terms".
+    - NO VARIATIONS: Do not use "Amount", "Total", or "sub-total".
+    - NUMERIC ONLY: For "AMOUNT" and "UNIT PRICE", DO NOT include "$" or commas. Use only digits and decimals (e.g., 500.00).
+    - ADDRESS FORMAT: Combine Name, Full Address, and Telephone Number into one single string for "Bill For" and "From".
+    - OUTPUT: Return ONLY a valid JSON object.
 
-        Expected output: remove any dollar symbols {{'Invoice ID': '1001329','DESCRIPTION': 'UNIT PRICE','AMOUNT': '2','Date': '5/4/2023','AMOUNT': '1100.00', 'Bill For': 'james', 'From': 'excel company', 'Terms': 'pay this now'}}
-        """
-    prompt_template = PromptTemplate(input_variables=["pages"], template=template)
-    llm = OpenAI(temperature=.7)
-    full_response=llm(prompt_template.format(pages=pages_data))
+    ### EXAMPLE 1 ###
+    INPUT: "Inv #101. Date 01/01/2026. From: TechCorp, 555 Main St. To: Alice Smith, 123 Lane, tel # 555-0199. Total: $150.00"
+    OUTPUT: {{
+        "Invoice ID": "101",
+        "DESCRIPTION": "Services",
+        "Issue Date": "01/01/2026",
+        "UNIT PRICE": "150.00",
+        "AMOUNT": "150.00",
+        "Bill For": "Alice Smith, 123 Lane, tel # 555-0199",
+        "From": "TechCorp, 555 Main St",
+        "Terms": "N/A"
+    }}
+
+    ### EXAMPLE 2 ###
+    INPUT: "Bill For: Paul Regex, 1110 112THAVE W, SUITE 89626, SATURNEY, WA 99765. Contact: tel # 12876494. Amount: $500.00. ID: 2,389."
+    OUTPUT: {{
+        "Invoice ID": "2,389",
+        "DESCRIPTION": "Phone bill",
+        "Issue Date": "11/27/2026",
+        "UNIT PRICE": "500.00",
+        "AMOUNT": "500.00",
+        "Bill For": "Paul Regex, 1110 112THAVE W, SUITE 89626, SATURNEY, WA 99765, tel # 12876494",
+        "From": "DR-TeleP, 1583 E. TanneVa Ln, Nekaspo, WE 99010",
+        "Terms": "Due on Receipt"
+    }}
+
+    ### ACTUAL TEXT TO PROCESS ###
+    {pages}
+
+    ### JSON RESPONSE ###
+    """
     
-    return full_response
+    prompt_template = PromptTemplate.from_template(template)
+    llm = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile")
+    
+    chain = prompt_template | llm
+    response = chain.invoke({"pages": pages_data})
+    
+    return response.content
 
-# create documents from the uploaded pdfs
+# Create DataFrame from PDFs
 def create_docs(user_pdf_list):
-    df = pd.DataFrame({'Invoice ID': pd.Series(dtype='int'),
-                   'DESCRIPTION': pd.Series(dtype='str'),
-                   'Issue Date': pd.Series(dtype='str'),
-	              'UNIT PRICE': pd.Series(dtype='str'),
-                   'AMOUNT': pd.Series(dtype='int'),
-                   'Bill For': pd.Series(dtype='str'),
-	                'From': pd.Series(dtype='str'),
-                   'Terms': pd.Series(dtype='str')
-                    
-                    })
+    cols = ['Invoice ID', 'DESCRIPTION', 'Issue Date', 'UNIT PRICE', 'AMOUNT', 'Bill For', 'From', 'Terms']
+    df = pd.DataFrame(columns=cols)
 
-    for filename in user_pdf_list:
+    for pdf_file in user_pdf_list:
+        try:
+            raw_data = get_pdf_text(pdf_file)
+            llm_extracted_data = extracted_data(raw_data)
+
+            # Use regex to isolate the JSON block
+            match = re.search(r'(\{.*\})', llm_extracted_data, re.DOTALL)
+
+            if match:
+                data_dict = json.loads(match.group(1))
+                
+                # Create row and align to target columns
+                new_row = pd.DataFrame([data_dict]).reindex(columns=cols)
+                
+                # Double-check cleanup just in case LLM missed the instruction
+                if 'AMOUNT' in new_row.columns:
+                    new_row['AMOUNT'] = new_row['AMOUNT'].astype(str).str.replace(r'[\$,]', '', regex=True)
+
+                df = pd.concat([df, new_row], ignore_index=True)
+            else:
+                st.error(f"Could not find structured data for {pdf_file.name}")
         
-        print(filename)
-        raw_data=get_pdf_text(filename)
-        #print(raw_data)
-        #print("extracted raw data")
+        except Exception as e:
+            st.error(f"Error processing {pdf_file.name}: {e}")
 
-        llm_extracted_data=extracted_data(raw_data)
-        #print("llm extracted data")
-        #Adding items to our list - Adding data & its metadata
-
-        pattern = r'{(.+)}' # capture one or more of any character, except newline
-        match = re.search(pattern, llm_extracted_data, re.DOTALL)
-
-        if match:
-            extracted_text = match.group(1)
-            # Converting the extracted text to a dictionary
-            data_dict = eval('{' + extracted_text + '}')
-            print(data_dict)
-        else:
-            print("No match found.")
-
-     
-        # df=df.append([data_dict], ignore_index=True) #this won't work!!
-        df = pd.concat([df, pd.DataFrame([data_dict])], ignore_index=True)
-    
-        # df = pd.concat(df, pd.DataFrame([eval('{' +item+'}')]), ignore_index=True )
-
-        print("********************DONE***************")
-        #df=df.append(save_to_dataframe(llm_extracted_data), ignore_index=True)
-
-    df.head()
     return df

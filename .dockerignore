@@ -1,0 +1,17 @@
+# Security
+.env
+.env.*
+
+# Python environment
+.venv*/
+__pycache__/
+*.py[cod]
+
+# Data and Samples
+*.pdf
+*.png
+*.jpg
+
+# Git and IDE
+.git/
+.vscode/
