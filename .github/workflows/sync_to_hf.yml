@@ -15,10 +15,23 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-      - name: Push to hub
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      # This step uses the secret you just successfully saved
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.HF_SYNC_SSH_KEY }}
+          known_hosts: unnecessary
+          if_key_exists: replace
+
+      # This tells GitHub that hf.co is a trusted server
+      - name: Add HF to Known Hosts
         run: |
-          # Use 'token' as the username for Fine-Grained tokens
-          # This is the secret to bypassing the 'Invalid password' error
-          git push --force https://token:$HF_TOKEN@huggingface.co/spaces/Takuya-Maekawa1982/bill-extractor-ai main
+          mkdir -p ~/.ssh
+          ssh-keyscan hf.co >> ~/.ssh/known_hosts
+
+      - name: Push to Hugging Face
+        run: |
+          # We use the SSH URL format here: git@hf.co:spaces/...
+          git remote add hf git@hf.co:spaces/Takuya-Maekawa1982/bill-extractor-ai
+          git push --force hf main
