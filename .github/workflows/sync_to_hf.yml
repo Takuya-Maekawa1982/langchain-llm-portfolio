@@ -8,17 +8,17 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  sync:
+  sync-to-hub:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Sync to Hugging Face
-        uses: huggingface/hub-sync@v0.1.0
-        with:
-          github_repo_id: ${{ github.repository }}
-          huggingface_repo_id: Takuya-Maekawa1982/bill-extractor-ai
-          hf_token: ${{ secrets.HF_TOKEN }}
-          repo_type: space
-          space_sdk: docker
+          lfs: true
+      - name: Push to hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Use 'token' as the username for Fine-Grained tokens
+          # This is the secret to bypassing the 'Invalid password' error
+          git push --force https://token:$HF_TOKEN@huggingface.co/spaces/Takuya-Maekawa1982/bill-extractor-ai main
