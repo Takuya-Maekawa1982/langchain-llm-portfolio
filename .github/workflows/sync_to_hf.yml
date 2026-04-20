@@ -4,11 +4,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# This silences the deprecation warning by opting into the new Node.js 24 engine
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
     steps:
-      # Updated to v4 for Node.js 24 compatibility
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
