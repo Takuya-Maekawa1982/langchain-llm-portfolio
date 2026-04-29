@@ -138,7 +138,6 @@ celerybeat.pid
 .env
 .envrc
 .venv*
-.venv_3_10
 env/
 venv/
 ENV/
@@ -207,8 +206,11 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# PyCaret artifacts
+# PyCaret artifacts etc
 models/
 
 #Vedio
 Videos/
+
+#logs
+logs/

@@ -15,3 +15,6 @@ __pycache__/
 # Git and IDE
 .git/
 .vscode/
+
+# models
+models/

@@ -1,16 +1,57 @@
+# =========================================================
+# 1. Core LLM / Vision Clients (API Clients Only)
+# =========================================================
 openai
+anthropic
+google
 groq
+langchain_openai
+langchain_google_genai
 langchain-groq
-pydantic
-streamlit
-python-dotenv
+
+# =========================================================
+# 2. LangChain / LangGraph (Agent & Workflow Orchestration)
+# =========================================================
 langchain
+langchain-core
 langchain-community
+langgraph
+python-dotenv
+pydantic
+
+# =========================================================
+# 3. OCR Engines (A: PaddleOCR v5, C: multilingual fallback)
+# =========================================================
+paddleocr
+paddlepaddle
+easyocr
+opencv-python
+pdf2image
+
+# =========================================================
+# 4. Document Processing (PDF / Word / Excel / DataFrames)
+# =========================================================
+pypdf
+python-docx
+openpyxl
+pandas
+
+# =========================================================
+# 5. ML / Vision Runtime (Torch for EasyOCR)
+# =========================================================
+torch
+torchvision
+numpy
+
+# =========================================================
+# 6. UI / Development Utilities
+# =========================================================
+streamlit
+pytest
+
+# =========================================================
+# 7. Optional / Future (Keep but not required for runtime)
+# =========================================================
 faiss-cpu
 sentence-transformers
-pandas
-numpy
-ipykernel
-pypdf
-langchain-core
-pdf2image
+huggingface_hub
